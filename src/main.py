@@ -16,7 +16,7 @@ def main_stub(x):
 
 # %run Preprocessing.ipynb #Reimport functions
 
-path = ".data/"
+path = "../.data/"
 
 # Input data
 WSC_sample_frame = cv2.imread(path + "WSC sample.png", 1)
