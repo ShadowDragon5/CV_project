@@ -3,7 +3,9 @@
 
 ## Setup
 
-1. Create a `.data` directory
-2. Download `WSC.mp4` and `WSC sample.png` from iCorsi and place them in the `.data` folder
-3. ???
-4. profit
+1. Make sure packages listed in `requirements.txt` are installed
+2. Copy `.env.example` to `.env`
+3. Create a `.data` directory
+4. Download `WSC.mp4` and `WSC sample.png` from iCorsi and place them in the `.data` folder
+5. ???
+6. profit

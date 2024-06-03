@@ -1,7 +1,7 @@
 import numpy as np
 from bisect import bisect
 
-# %%
+
 # Houhh line implementation
 # original source: https://github.com/alyssaq/hough_transform
 # TODO: numpy vectorized version of the code (faster implementation in same source)

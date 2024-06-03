@@ -1,15 +1,14 @@
 import cv2
 import numpy as np
+from cv2.typing import MatLike
 
-# %%
 # size of score tag
-np.array([679 - 651, 960 - 320])
+# np.array([679 - 651, 960 - 320])
 
 
-# %%
 # Return the score tag coordinates
 # TODO: reduce resolution of output score tag, automate detect resolution of sample image and score tag coordinates
-def extract_score_tag(frame):
+def extract_score_tag(frame: MatLike) -> MatLike:
     width, height, _ = frame.shape
     # Resolution of 'WSC\ sample.png'
     baseline_width, baseline_height = (720, 1280)
@@ -29,17 +28,11 @@ def extract_score_tag(frame):
     # print(a_x,a_y,b_x,b_y)
     score_tag = frame[a_x:b_x, a_y:b_y]
 
-    # Visualize relevant range
-    # cv2.imshow('score_tag',score_tag)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-
     return score_tag
 
 
-# %%
-# Resolution agnostic comparaison of score tags
-# TODO: reduce the amount of pixels checked, uniform sparce sampling
+# Resolution agnostic comparison of score tags
+# TODO: reduce the amount of pixels checked, uniform sparse sampling
 def compare_score_tag(baseline, sample):
     baseline_width, baseline_height, _ = baseline.shape
     sample_width, sample_height, _ = sample.shape
@@ -49,9 +42,6 @@ def compare_score_tag(baseline, sample):
         min(baseline_width, sample_width),
         min(baseline_height, sample_height),
     )
-    # print(baseline_width, baseline_height)
-    # print(sample_width, sample_height)
-    # print(width, height)
 
     # Resize inputs
     baseline_small = cv2.resize(baseline, (height, width))
@@ -60,7 +50,6 @@ def compare_score_tag(baseline, sample):
     # Compute abs diff and sum up as score
     diff = cv2.absdiff(baseline_small, sample_small)
     diff_score = np.sum(diff)
-    # print(diff_score)
 
     # Tolerance on error (max allowed score)
     expected_average_pixel_error = 15 / 100  # Handpicked
