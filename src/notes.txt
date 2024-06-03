@@ -6,7 +6,7 @@
 - Reconstruct camera
 	- Todo:
 		- Document real dimensions of the table (look up manufacturer/wiki/event organizer/rules)
-		- Extract image points corresponding to:  corners (holes), cushings/table edges, ball markers/reference lines in the playing area, balls in initial position
+		- Extract image points corresponding to: corners (holes), cushings/table edges, ball markers/reference lines in the playing area, balls in initial position
 		- DLT, sketch is done, needs to be encapsulated/"made into a function"
 	- Tips:
 		- https://web.archive.org/web/20160715114453/http://www.wpbsa.com/wp-content/uploads/2016/03/official-rules-of-the-game.pdf
