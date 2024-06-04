@@ -10,6 +10,11 @@ python = "^3.11"
 opencv-python = "^4.9.0.80"
 python-dotenv = "^1.0.1"
 
+[tool.ruff]
+extend-select = ["I"]
+
+[tool.ruff.format]
+docstring-code-format = true
 
 [build-system]
 requires = ["poetry-core"]

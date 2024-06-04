@@ -1,18 +1,22 @@
 import cv2
-from cv2.typing import MatLike
 import numpy as np
+from cv2.typing import MatLike
+
+# local imports
 from hough_line import hough_lines
 
 
-# Function that detects the hardcoded green and brown colors
-# and computes the edges where the colors touch. It then
-# computes the most likely 4 straight lines that fit the edges
 def table_edges_detection(frame_BGR: MatLike) -> MatLike:
+    """
+    Function that detects the hardcoded green and brown colors
+    and computes the edges where the colors touch. It then
+    computes the most likely 4 straight lines that fit the edges
+    """
     width, height, _ = frame_BGR.shape
 
     frame_HSV = cv2.cvtColor(frame_BGR, cv2.COLOR_BGR2HSV)
 
-	#CV2 HSV ranges: Hue from 0 to 180, Staturation form 0 to 100, Value from 0 to 100
+    # CV2 HSV ranges: Hue from 0 to 180, Staturation form 0 to 100, Value from 0 to 100
 
     # Filter green color
     green_HSV_low = np.array([50, 200, 50])  # Hardcoded green HSV value
@@ -35,27 +39,32 @@ def table_edges_detection(frame_BGR: MatLike) -> MatLike:
     # frame_green = cv2.morphologyEx(frame_green, cv2.MORPH_CLOSE, kernel)
 
     # Dilate green and brown so that they overlap
-    kernel_small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10)) # Hardcodec value
+    # NOTE: Hard-coded value
+    kernel_small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
     brown_dilate = cv2.dilate(frame_brown, kernel_small)
     green_dilate = cv2.dilate(frame_green, kernel_small)
-    
+
     # Remove some balls from the green playing area (red balls are too big of a blob)
-    kernel_ball_size = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20)) # Hardcodec value
+    # NOTE: Hard-coded value
+    kernel_ball_size = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
     green_close = cv2.morphologyEx(green_dilate, cv2.MORPH_CLOSE, kernel_ball_size)
-    
+
     # Get a thin edge of the green playing area
-    kernel_very_small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2)) # Hardcodec value
-    green_gradient = cv2.morphologyEx(green_close, cv2.MORPH_GRADIENT, kernel_very_small)
-    
-    # Intersect the greeen edge with the brown mask to obtain green/brow edges
+    # NOTE: Hard-coded value
+    kernel_very_small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
+    green_gradient = cv2.morphologyEx(
+        green_close, cv2.MORPH_GRADIENT, kernel_very_small
+    )
+
+    # Intersect the green edge with the brown mask to obtain green/brow edges
     edges_green_brown = cv2.bitwise_and(green_gradient, brown_dilate)
-    
-    # Draw edges in white
-    #edges_negative = cv2.bitwise_not(edges_green_brown)
-    #frame_BGR = cv2.bitwise_and(frame_BGR,frame_BGR, mask=edges_negative)
-    #frame_BGR = frame_BGR + cv2.cvtColor(edges_green_brown, cv2.COLOR_GRAY2RGB)
-	
-	# Compute lines that fit the edges
+
+    # # Draw edges in white
+    # edges_negative = cv2.bitwise_not(edges_green_brown)
+    # frame_BGR = cv2.bitwise_and(frame_BGR, frame_BGR, mask=edges_negative)
+    # frame_BGR = frame_BGR + cv2.cvtColor(edges_green_brown, cv2.COLOR_GRAY2RGB)
+
+    # Compute lines that fit the edges
     lines = hough_lines(edges_green_brown, num_lines=4)
 
     # Draw lines from Hough transform
@@ -72,7 +81,7 @@ def table_edges_detection(frame_BGR: MatLike) -> MatLike:
             x2 = int(x0 - 10000 * (-b))
             y2 = int(y0 - 10000 * (a))
 
-            cv2.line(frame_BGR, (x1, y1), (x2, y2), (0, 0, 255), 2)
+            cv2.line(frame_BGR, (x1, y1), (x2, y2), (0, 0, 255), 1)
 
     return frame_BGR
 

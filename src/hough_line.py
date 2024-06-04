@@ -1,11 +1,14 @@
-import numpy as np
 from bisect import bisect
 
+import numpy as np
 
-# Houhh line implementation
-# original source: https://github.com/alyssaq/hough_transform
+
 # TODO: numpy vectorized version of the code (faster implementation in same source)
 def hough_lines(binary_img, rho_step=0.5, theta_step=0.5, num_lines=4):
+    """
+    Hough line implementation
+    original source: https://github.com/alyssaq/hough_transform
+    """
     width, height = binary_img.shape
     # Rho and Theta ranges
     thetas = np.deg2rad(np.arange(-90, 90 - theta_step, theta_step))

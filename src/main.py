@@ -3,18 +3,9 @@ from pathlib import Path
 import cv2
 from dotenv import dotenv_values
 
+# local imports
 from feature_detection import table_edges_detection
-from preprocessing import compare_score_tag, extract_score_tag
-
-
-def img_show(img) -> None:
-    cv2.imshow("Title", img)
-
-    while cv2.getWindowProperty("Title", cv2.WND_PROP_VISIBLE) >= 1:
-        key = cv2.waitKey(100)
-        if (key & 0xFF) == ord("q"):
-            cv2.destroyAllWindows()
-            break
+from utils import VideoReader, img_show
 
 
 def main():
@@ -25,14 +16,45 @@ def main():
     print(f"Processing {ref_frame_path}...")
     reference_frame = cv2.imread(ref_frame_path, cv2.IMREAD_COLOR)
 
+    # # scale the frame
     # scale = 0.5
-    # out = cv2.resize(reference_frame, (0, 0), fx=scale, fy=scale)
+    # reference_frame = cv2.resize(reference_frame, (0, 0), fx=scale, fy=scale)
 
     out = table_edges_detection(reference_frame)
     img_show(out)
 
+    # TODO:
+    # process_video(data_path / "WSC.mp4")
 
-# Template loop for iterating over video
+
+def process_video(video_path: Path):
+    filtered_path = video_path.with_name(
+        video_path.stem + "_filtered" + video_path.suffix
+    )
+    reader = (
+        VideoReader(filtered_path) if filtered_path.exists() else get_frames(video_path)
+    )
+
+    # OPTIMIZE:
+    for frame in VideoReader(video_path, max_count=25_000):
+        cv2.imshow("Video", frame)
+
+        key = cv2.waitKey(10)
+        if (
+            cv2.getWindowProperty("Video", cv2.WND_PROP_VISIBLE) < 1  # window is closed
+            or (key & 0xFF) == ord("q")
+        ):
+            cv2.destroyAllWindows()
+            break
+
+
+def get_frames(video_path):
+    gen1 = VideoReader(video_path)
+    gen2 = VideoReader(video_path)
+    next(gen2)
+    for f1, f2 in zip(gen1, gen2):
+        yield f1 - f2
+
 
 # FIXME: abstract this
 # path = ".data/"
@@ -119,10 +141,6 @@ def main():
 # # Close file
 # video_in.release()
 # video_out.release()
-
-# # Close visualization windows
-# # cv2.waitKey(0)
-# # cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     main()
