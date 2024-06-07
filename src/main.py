@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import cv2
+import numpy as np
 from dotenv import dotenv_values
 
 # local imports
@@ -20,19 +21,45 @@ def main():
     # scale = 0.5
     # reference_frame = cv2.resize(reference_frame, (0, 0), fx=scale, fy=scale)
 
-    out = table_edges_detection(reference_frame)
-    img_show(out)
+    line_frame, lines = table_edges_detection(reference_frame.copy())
+    mask = create_table_mask(lines, reference_frame.shape[:2])
+
+    reference_frame = cv2.bitwise_and(reference_frame, reference_frame, mask=mask)
+    img_show(reference_frame)
 
     # TODO:
     # process_video(data_path / "WSC.mp4")
+
+
+def create_table_mask(lines: list, shape) -> np.ndarray:
+    """
+    Creates a mask for the play area given the 4 lines defining the borders
+    lines: list of lines in polar coordinates (rho, theta) from Hough transform
+    shape: the shape of the frame that the mask will be created
+    """
+    y, x = np.indices(shape)
+    mask = np.ones(shape, dtype=np.uint8)
+    for rho, theta in lines:
+        # TODO: there should be a better way check which side to pick
+        if rho * np.sin(theta) > 50:
+            m = x * np.cos(theta) + y * np.sin(theta) > rho
+        else:
+            m = x * np.cos(theta) + y * np.sin(theta) < rho
+        # m = (m - np.min(m)) / (np.max(m) - np.min(m)) * 255
+        # m = m.astype(np.uint8)
+        mask = mask * m
+    return mask
 
 
 def process_video(video_path: Path):
     filtered_path = video_path.with_name(
         video_path.stem + "_filtered" + video_path.suffix
     )
+    # TODO: use reader to make sure the filtered file exists
     reader = (
-        VideoReader(filtered_path) if filtered_path.exists() else get_frames(video_path)
+        VideoReader(filtered_path)
+        if filtered_path.exists()
+        else get_filtered_frames(video_path)
     )
 
     # OPTIMIZE:
@@ -48,7 +75,8 @@ def process_video(video_path: Path):
             break
 
 
-def get_frames(video_path):
+# TODO: move frame filtering logic here
+def get_filtered_frames(video_path):
     gen1 = VideoReader(video_path)
     gen2 = VideoReader(video_path)
     next(gen2)
@@ -56,7 +84,6 @@ def get_frames(video_path):
         yield f1 - f2
 
 
-# FIXME: abstract this
 # path = ".data/"
 #
 # # Input data

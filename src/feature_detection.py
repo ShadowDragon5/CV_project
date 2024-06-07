@@ -6,7 +6,7 @@ from cv2.typing import MatLike
 from hough_line import hough_lines
 
 
-def table_edges_detection(frame_BGR: MatLike) -> MatLike:
+def table_edges_detection(frame_BGR: MatLike) -> (MatLike, list):
     """
     Function that detects the hardcoded green and brown colors
     and computes the edges where the colors touch. It then
@@ -67,23 +67,26 @@ def table_edges_detection(frame_BGR: MatLike) -> MatLike:
     # Compute lines that fit the edges
     lines = hough_lines(edges_green_brown, num_lines=4)
 
+    if lines is None:
+        print("No lines found")
+        return frame_BGR
+
     # Draw lines from Hough transform
-    if lines is not None:
-        for line in lines:
-            rho = line[0]
-            theta = line[1]
-            a = np.cos(theta)
-            b = np.sin(theta)
-            x0 = a * rho
-            y0 = b * rho
-            x1 = int(x0 + 10000 * (-b))
-            y1 = int(y0 + 10000 * (a))
-            x2 = int(x0 - 10000 * (-b))
-            y2 = int(y0 - 10000 * (a))
+    for rho, theta in lines:
+        a = np.cos(theta)
+        b = np.sin(theta)
+        x0 = a * rho
+        y0 = b * rho
+        x1 = int(x0 + 10000 * (-b))
+        y1 = int(y0 + 10000 * (a))
+        x2 = int(x0 - 10000 * (-b))
+        y2 = int(y0 - 10000 * (a))
 
-            cv2.line(frame_BGR, (x1, y1), (x2, y2), (0, 0, 255), 1)
+        cv2.line(frame_BGR, (x1, y1), (x2, y2), (0, 0, 255), 1)
+        line = np.cross([x1, y1, 1], [x2, y2, 1])
+        line = line / line[2]
 
-    return frame_BGR
+    return frame_BGR, lines
 
 
 # # Function that detects the lines markings on the table
