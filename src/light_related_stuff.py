@@ -35,6 +35,9 @@ uv = np.array(
 
 #DLT
 P = DLT(xyz,uv)
+P_inv = np.linalg.pinv(P) #Multiply on world coord to get a point
+							#on the ray the point is on in 3D, join with
+							#camera position for full ray
 print(P)
 
 #Camera position
@@ -47,20 +50,29 @@ print(Camera_position)
 #World coordinates of ball centers in reference frame
 
 
-def compute_light_position_from_ball_center(P, Camera, Specular_out, Ball_centers):
-	
-	#Camera coord of specular -> World coord of specular (multiply by P)
-	
-	#Camera position + Wold coord of specular = Camera line
-	
-	#Wold coord of centers + World coord of specular = Normal vector
+def compute_light_position_from_ball_center(P, Camera, Specular_out, Balls_xyz):
 		
-	#Reflect Camera line with respect to Normal vector = Light vector
-	#Source: https://en.wikipedia.org/wiki/Snell%27s_law#Vector_form
-	#cos(theta) = -Normal dot product Camera line
-	#Light line = Camera line + 2cos(theta)*Normal
-	
-	#Repeat for each specular
+	for Specular_i in Specular_out:
+		
+		Specular_homogeneus = np.append(Specular_i.coord,[1])
+		#Camera coord of specular -> Camera line (multiply by inverse of P)
+		tmp_world_coord = P_inv.dot(tmp_homogeneus)
+		#Camera line as origin and vector b-a
+		Camera_line = {'origin':Camera_position, 'vector':tmp_world_coord[:2]-Camera_position}
+		
+		Sphere = {'origin':Balls_xyz, 'radius':radius}
+		
+		specular_xyz = line_sphere_intersection(Camera_line,Sphere)
+		
+		#Wold coord of centers, World coord of specular -> Normal vector
+		normal_vector = specular_xyz - Balls_xyz
+		
+		#Reflect Camera line with respect to Normal vector = Light vector
+		#Source: https://en.wikipedia.org/wiki/Snell%27s_law#Vector_form
+		reflection_angle = np.arccos(np.dot(-normal_vector,Camera_line['vector']))
+		reflection_vector = Camera_line['vector'] + 2*cos(reflection_angle)*normal_vector
+		
+		reflection_line = {'origin':specular_xyz, 'vector':reflection_vector}
 	
 	#Aproximate intersection = Light world coordinates
 	light = lineIntersect3D(None,None)
@@ -68,21 +80,41 @@ def compute_light_position_from_ball_center(P, Camera, Specular_out, Ball_center
 	return light
 
 def compute_ball_center_from_specular_reflection(P, Camera, Light, Specular_out):
-
-	#Camera coord of specular -> World coord of specular (multiply by P)
 	
-	# World coord of specular + Camera = Camera line
-	
-	# World coord of specular + Light = Light line
-	
-	#Compute normal (bisector)
-	#Source: https://en.wikipedia.org/wiki/Snell%27s_law#Vector_form
-	#theta = arc cos( l_1 dot product l_2 normalized)
-	#(Camera line - Light line)/2 cos theta = Normal
-	
-	#Ball_centers = Specular out - Normal*radius
+	for Specular_i in Specular_out:
+		
+		Specular_homogeneus = np.append(Specular_i.coord,[1])
+		#Camera coord of specular -> Camera line (multiply by inverse of P)
+		tmp_world_coord = P_inv.dot(tmp_homogeneus)
+		#Camera line as origin and vector b-a
+		Camera_line = (Camera_position,tmp_world_coord[:2]-Camera_position)
+		
+		#Camera line, Light, radius -> Light line
+		#Find equation of center height with respect to Camera line lambda
+		#Solve for real height of center?
+		#
+		
+		#Compute normal (bisector)
+		#Source: https://en.wikipedia.org/wiki/Snell%27s_law#Vector_form
+		#theta = arc cos( l_1 dot product l_2 normalized)
+		#(Camera line - Light line)/2 cos theta = Normal
+		
+		#Ball_centers = Specular out - Normal*radius
 	
 	return Ball_centers
+
+def line_sphere_intersection(line,sphere):
+	#source: https://en.wikipedia.org/wiki/Line%E2%80%93sphere_intersection#Calculation_using_vectors_in_3D
+	c = sphere['center']
+	r = sphere['radius']
+	o = line['origin']
+	u = line['vector']/np.linalg.norm(line['vector'])
+	delta = (np.dot(u,(o-c)))**2 - (np.linalg.norm(o-c)**2 - r**2)
+	distance = 0
+	if delta >= 0:
+		distance = -np.dot(u,(o-c)) - np.sqrt(delta)
+	intersection = o + u*distance
+	return intersection
 
 def lineIntersect3D(PA, PB):
 	#Source: https://ch.mathworks.com/matlabcentral/fileexchange/37192-intersection-point-of-lines-in-3d-space
