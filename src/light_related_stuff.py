@@ -1,4 +1,7 @@
 import numpy as np
+from sympy import Symbol, Matrix, lambdify
+from scipy.optimize import fsolve
+
 
 from DLT import DLT
 
@@ -58,8 +61,12 @@ def compute_light_position_from_ball_center(P, Camera, Specular_out, Balls_xyz):
 		#Camera coord of specular -> Camera line (multiply by inverse of P)
 		tmp_world_coord = P_inv.dot(tmp_homogeneus)
 		#Camera line as origin and vector b-a
-		Camera_line = {'origin':Camera_position, 'vector':tmp_world_coord[:2]-Camera_position}
-		
+		Camera_line = {
+			'origin':Camera_position,
+			'vector':tmp_world_coord[:2]-Camera_position
+		}
+		Camera_line['vector'] *= 1/np.linalg.norm(Camera_line['vector'])
+
 		Sphere = {'origin':Balls_xyz, 'radius':radius}
 		
 		specular_xyz = line_sphere_intersection(Camera_line,Sphere)
@@ -80,28 +87,41 @@ def compute_light_position_from_ball_center(P, Camera, Specular_out, Balls_xyz):
 	return light
 
 def compute_ball_center_from_specular_reflection(P, Camera, Light, Specular_out):
+		
+	Specular_homogeneus = np.append(Specular.coord,[1])
+	#Camera coord of specular -> Camera line (multiply by inverse of P)
+	tmp_world_coord = P_inv.dot(Specular_homogeneus)
+	#Line from camera origin to specular
+	Camera_line = {
+		'origin':Camera_position,
+		'vector':tmp_world_coord[:2]-Camera_position #vector b-a
+	}
+	#Normalize
+	Camera_line['vector'] *= 1/np.linalg.norm(Camera_line['vector'])
+
+	#Solving inverse problem
 	
-	for Specular_i in Specular_out:
-		
-		Specular_homogeneus = np.append(Specular_i.coord,[1])
-		#Camera coord of specular -> Camera line (multiply by inverse of P)
-		tmp_world_coord = P_inv.dot(tmp_homogeneus)
-		#Camera line as origin and vector b-a
-		Camera_line = (Camera_position,tmp_world_coord[:2]-Camera_position)
-		
-		#Camera line, Light, radius -> Light line
-		#Find equation of center height with respect to Camera line lambda
-		#Solve for real height of center?
-		#
-		
-		#Compute normal (bisector)
-		#Source: https://en.wikipedia.org/wiki/Snell%27s_law#Vector_form
-		#theta = arc cos( l_1 dot product l_2 normalized)
-		#(Camera line - Light line)/2 cos theta = Normal
-		
-		#Ball_centers = Specular out - Normal*radius
+	#Distance of specular from camera origin (parameter lambda)	
+	distance = Symbol('d', real=True, positive=True)
+	#Equation of specular coordinates with respect to distance
+	ball_specular_xyz = Matrix(Camera_line['origin']) + distance*Matrix(Camera_line['vector'])
+	#Vector from specular to light source
+	light_vec = (Matrix(Light) - ball_specular_xyz).normalized()
+	#Normal vector at specular
+	normal_vec = (-Matrix(Camera_line['vector']) + light_vec).normalized()
+	#Ball center with respect to distance
+	ball_center_xyz = ball_specular_xyz - normal_vec*radius
 	
-	return Ball_centers
+	#Solve for known height of ball center
+	real_ball_z = 
+	#Convert fro sympy to scipy
+	f_z = lambdify(distance,ball_center_xyz[2] + real_ball_z,'scipy')
+	#Use non-linear solver of scipy
+	distance_approx = fsolve(f_z,[1]) #Set initial guess to 1
+	#Evaluate solution in equation
+	ball_center_xyz = ball_xyz.subst(distance,distance_approx)
+	
+	return ball_center_xyz
 
 def line_sphere_intersection(line,sphere):
 	#source: https://en.wikipedia.org/wiki/Line%E2%80%93sphere_intersection#Calculation_using_vectors_in_3D
