@@ -10,7 +10,7 @@ def compute_light_position_from_ball_center(P, Camera, Specular_out, Balls_xyz):
 	PointsB = np.empty([len(Specular_out),3])
 	i = 0
 	for ((color, Specular_uv, mask_img),(color_, Ball_xyz)) in zip(Specular_out,Balls_xyz):
-		print('Ball color: ', color)
+		#print('Ball color: ', color)
 		Specular_homogeneus = np.append(Specular_uv,[1])
 		#Camera coord of specular -> Camera line (multiply by inverse of P)
 		Specular_world_coord = P_inv.dot(Specular_homogeneus)
@@ -21,10 +21,13 @@ def compute_light_position_from_ball_center(P, Camera, Specular_out, Balls_xyz):
 		}
 		Camera_line['vector'] *= 1/np.linalg.norm(Camera_line['vector'])
 
-		Sphere = {'origin':Ball_xyz, 'radius':0.02625}
+		Sphere = {'origin': Ball_xyz, 'radius': 0.02625}
 		
 		Specular_xyz = line_sphere_intersection(Camera_line,Sphere)
-		
+		#print('Center: ', Ball_xyz)
+		#print('Specular: ', Specular_xyz)
+		#print('Error in dist : ', np.linalg.norm(Ball_xyz - Specular_xyz)-0.02625)
+		#print('Vector: ', Camera_line['vector'])
 		#Wold coord of centers, World coord of specular -> Normal vector
 		normal_vector = Specular_xyz - Ball_xyz
 		normal_vector *= 1/np.linalg.norm(normal_vector)
@@ -32,8 +35,8 @@ def compute_light_position_from_ball_center(P, Camera, Specular_out, Balls_xyz):
 		#Reflect Camera line with respect to Normal vector = Light vector
 		#Source: https://en.wikipedia.org/wiki/Specular_reflection#Vector_formulation
 		reflection_vector = Camera_line['vector'] - 2*normal_vector*(np.dot(normal_vector,Camera_line['vector']))
-		print('Camera line: ',Camera_line['vector'])
-		print('Light line: ', reflection_vector)
+		#print('Camera line: ',Camera_line['vector'])
+		#print('Light line: ', reflection_vector)
 		
 		#Two points representing the reflection line
 		PointsA[i] = Specular_xyz #origin
@@ -42,7 +45,7 @@ def compute_light_position_from_ball_center(P, Camera, Specular_out, Balls_xyz):
 		
 	#Aproximate intersection by least squares
 	Light, error = lineIntersect3D(PointsA,PointsB)
-	print('Light error :', error)
+	#print('Light error :', error)
 	
 	return Light
 
@@ -95,12 +98,19 @@ def line_sphere_intersection(line,sphere):
 	o = line['origin']
 	u = line['vector']/np.linalg.norm(line['vector'])
 	delta = (np.dot(u,(o-c)))**2 - (np.linalg.norm(o-c)**2 - r**2)
-	distance = 0
+	intersection = []
 	if delta >= 0:
 		distance = -np.dot(u,(o-c)) - np.sqrt(delta)
 		#distance_2 = -np.dot(u,(o-c)) + np.sqrt(delta)
 		#distance = min(distance_1,distance_2)
-	intersection = o + u*distance
+		intersection = o + u*distance
+	else:
+		#Line didnt hit the ball, you are in trouble
+		#Lets return the closest point on the sphere to the line
+		intersection_on_line = o + np.dot(c,u) / np.dot(u,u) * u
+		v = intersection_on_line - c
+		print('ERROR ON LINE SPHERE INTERSECTION: ', np.linalg.norm(v))
+		intersection = c + r*(v)/np.linalg.norm(v)
 	return intersection
 
 def lineIntersect3D(PA, PB):
@@ -147,7 +157,40 @@ def lineIntersect3D(PA, PB):
     return P_intersect, distances
 
 
-#Testing
+#####TESTING#####
+
+# Testing intersection line sphere
+
+# Origin line and small sphere
+#Camera line as origin and vector b-a
+test_line = {
+	'origin':np.array([0,0,0]),
+	'vector':np.array([0,0,1])
+}
+test_sphere = {'origin': np.array([1,1,10]), 'radius': 2}
+#Should print [0,0,8.5] aprox
+#	print(line_sphere_intersection(test_line,test_sphere))
+
+# Testing intersection of a set of 3D lines
+
+#Coord of pair of points in 4 lines that sort of converge on [0,0,2]
+test_PA = np.array([
+	[0,0,0],
+	[1,0,0],
+	[0,1,0],
+	[1,1,0]
+])
+test_PB = np.array([
+	[0,0,1],
+	[0.5,0,1],
+	[0,0.5,1],
+	[0.5,0.5,1]
+])
+#Should print [0,0,2] and [0,0,0,0]
+#print(lineIntersect3D(test_PA,test_PB))
+
+
+# Testing with sample inputs from reference frame
 
 # Nikki measurements in meters
 # the four corners of the "playing area" with cushion height, and the six ball markers at table height
@@ -193,26 +236,34 @@ print('Camera position: ',Camera)
 
 #Specular output sample (Taken from Marco's notebook)
 Specular_out = [
- ('green', np.flip(np.array([131, 731])), None),
- ('brown', np.flip(np.array([132, 639])), None),
- ('blue', np.flip(np.array([273, 639])), None)
- #('black', np.flip(np.array([273, 639])), None)
+ #('green', np.flip(np.array([135, 731])), None),
+ ('brown', np.flip(np.array([134, 639])), None),
+ ('blue', np.flip(np.array([276, 640])), None),
+ ('black', np.flip(np.array([539, 639])), None)
 ]
 
 #World coordinates of ball centers in reference frame
 #Based on Nikki measurements in meters
 Balls_xyz = [
- ('green', np.array([0.292, 1.0475, 0.02625])),
+ #('green', np.array([0.292, 1.0475, 0.02625])),
  ('brown', np.array([0, 1.0475, 0.02625])),
- ('blue', np.array([0, 0, 0.02625]))
- #('black', np.array([0, -1.4605, 0.02625]))
+ ('blue', np.array([0, 0, 0.02625])),
+ ('black', np.array([0, -1.4605, 0.02625]))
 ]
 
 Light = compute_light_position_from_ball_center(P, Camera, Specular_out, Balls_xyz)
 print('Light position: ', Light)
+Light_hardcoded = [0,-3,6]
+print('Light position hardcoded guess: ', Light_hardcoded)
 
-res = compute_ball_center_from_specular_reflection(P, Camera, Light, Specular_out)
+res = compute_ball_center_from_specular_reflection(P, Camera, Light_hardcoded, Specular_out)
+print('-----------------------------')
+print('-----------------------------')
 print('Position of the center of the balls recovered from the specular: ')
 print(res)
+print('-----------------------------')
 print('Real position of the center of the balls: ')
 print(Balls_xyz)
+print('-----------------------------')
+print('-----------------------------')
+
