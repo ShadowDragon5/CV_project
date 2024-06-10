@@ -78,9 +78,7 @@ def DLT(X_in,x_in):
 #DLT
 P = DLT(X,x)
 P_inv = np.linalg.pinv(P)
-print(P)
 
 #Camera position
 M = P[:,:3] #Rotation matrix of the camera
 Camera_position = -np.linalg.inv(M).dot(P[:,3].transpose())
-print(Camera_position)
