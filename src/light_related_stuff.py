@@ -76,7 +76,7 @@ def compute_ball_center_from_specular_reflection(P, Camera, Light, Specular_out)
 		Ball_xyz = Specular_xyz - normal_vec*radius_ball
 		
 		#Solve for known height of ball center
-		f_z = Ball_xyz[2] + radius_ball
+		f_z = Ball_xyz[2] - radius_ball
 		#and convert from sympy to scipy
 		f_z = lambdify(distance,f_z,'scipy')
 		#Use non-linear solver of scipy
