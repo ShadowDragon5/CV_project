@@ -5,7 +5,11 @@ import numpy as np
 from dotenv import dotenv_values
 
 # local imports
-from feature_detection import table_edges_detection
+from feature_detection import (
+    detect_baulk_line,
+    get_ball_centers,
+    table_edges_detection,
+)
 from utils import VideoReader, img_show
 
 
@@ -25,6 +29,20 @@ def main():
     mask = create_table_mask(lines, reference_frame.shape[:2])
 
     reference_frame = cv2.bitwise_and(reference_frame, reference_frame, mask=mask)
+    centers = get_ball_centers(reference_frame)
+    (baulk_rho, baulk_theta) = detect_baulk_line(reference_frame)[0]
+
+    # Calculate the coordinates where the balls are placed on the table
+    ground_points = {}
+    for color, (x, _) in centers:
+        if color not in ["yellow", "brown", "green"]:
+            continue
+        y = (baulk_rho - x * np.cos(baulk_theta)) / np.sin(baulk_theta)
+        ground_points[color] = [x, int(y)]
+
+    for _, (x, y) in centers + list(ground_points.items()):
+        reference_frame[y, x] = (0, 0, 255)
+
     img_show(reference_frame)
 
     # TODO:
@@ -35,7 +53,7 @@ def create_table_mask(lines: list, shape) -> np.ndarray:
     """
     Creates a mask for the play area given the 4 lines defining the borders
     lines: list of lines in polar coordinates (rho, theta) from Hough transform
-    shape: the shape of the frame that the mask will be created
+    shape: the 2D shape of the frame that the mask will be created
     """
     y, x = np.indices(shape)
     mask = np.ones(shape, dtype=np.uint8)

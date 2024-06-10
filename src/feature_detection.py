@@ -19,18 +19,21 @@ def table_edges_detection(frame_BGR: MatLike) -> (MatLike, list):
     # CV2 HSV ranges: Hue from 0 to 180, Staturation form 0 to 100, Value from 0 to 100
 
     # Filter green color
-    green_HSV_low = np.array([50, 200, 50])  # Hardcoded green HSV value
-    green_HSV_high = np.array([70, 255, 220])
-    frame_green = cv2.inRange(frame_HSV, green_HSV_low, green_HSV_high)
+    # NOTE: Hard-coded green HSV value
+    GREEN_HSV_LOW = np.array([50, 200, 50])
+    GREEN_HSV_HIGH = np.array([70, 255, 220])
+    frame_green = cv2.inRange(frame_HSV, GREEN_HSV_LOW, GREEN_HSV_HIGH)
 
     # Filter brown color
-    brown_HSV_low = np.array([0, 0, 20])  # Hardcoded brown HSV value
-    brown_HSV_high = np.array([20, 200, 150])
-    frame_brown_1 = cv2.inRange(frame_HSV, brown_HSV_low, brown_HSV_high)
+    # NOTE: Hard-coded brown HSV value
+    BROWN_HSV_LOW = np.array([0, 0, 20])
+    BROWN_HSV_HIGH = np.array([20, 200, 150])
+    frame_brown_1 = cv2.inRange(frame_HSV, BROWN_HSV_LOW, BROWN_HSV_HIGH)
 
-    brown_HSV_low = np.array([120, 0, 20])  # Other brown
-    brown_HSV_high = np.array([180, 200, 150])
-    frame_brown_2 = cv2.inRange(frame_HSV, brown_HSV_low, brown_HSV_high)
+    # NOTE: Hard-coded another brown HSV value
+    BROWN_HSV_LOW = np.array([120, 0, 20])
+    BROWN_HSV_HIGH = np.array([180, 200, 150])
+    frame_brown_2 = cv2.inRange(frame_HSV, BROWN_HSV_LOW, BROWN_HSV_HIGH)
 
     frame_brown = cv2.bitwise_or(frame_brown_1, frame_brown_2)
 
@@ -40,20 +43,20 @@ def table_edges_detection(frame_BGR: MatLike) -> (MatLike, list):
 
     # Dilate green and brown so that they overlap
     # NOTE: Hard-coded value
-    kernel_small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
-    brown_dilate = cv2.dilate(frame_brown, kernel_small)
-    green_dilate = cv2.dilate(frame_green, kernel_small)
+    KERNEL_SMALL = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
+    brown_dilate = cv2.dilate(frame_brown, KERNEL_SMALL)
+    green_dilate = cv2.dilate(frame_green, KERNEL_SMALL)
 
     # Remove some balls from the green playing area (red balls are too big of a blob)
     # NOTE: Hard-coded value
-    kernel_ball_size = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
-    green_close = cv2.morphologyEx(green_dilate, cv2.MORPH_CLOSE, kernel_ball_size)
+    KERNEL_BALL_SIZE = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
+    green_close = cv2.morphologyEx(green_dilate, cv2.MORPH_CLOSE, KERNEL_BALL_SIZE)
 
     # Get a thin edge of the green playing area
     # NOTE: Hard-coded value
-    kernel_very_small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
+    KERNEL_VERY_SMALL = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
     green_gradient = cv2.morphologyEx(
-        green_close, cv2.MORPH_GRADIENT, kernel_very_small
+        green_close, cv2.MORPH_GRADIENT, KERNEL_VERY_SMALL
     )
 
     # Intersect the green edge with the brown mask to obtain green/brow edges
@@ -89,38 +92,43 @@ def table_edges_detection(frame_BGR: MatLike) -> (MatLike, list):
     return frame_BGR, lines
 
 
-# # Function that detects the lines markings on the table
-# def baulk_line_detection(frame_BGR):
-#     width, height, _ = frame_BGR.shape
-#
-#     frame_HSV = cv2.cvtColor(frame_BGR, cv2.COLOR_BGR2HSV)
-#
-#     # Filter green color
-#     green_HSV_low = np.array([50, 200, 110])  # Hardcoded green HSV value
-#     green_HSV_high = np.array([70, 255, 210])
-#     frame_green = cv2.inRange(frame_HSV, green_HSV_low, green_HSV_high)
-#
-#     frame_HSL = cv2.cvtColor(frame_BGR, cv2.COLOR_BGR2HLS)
-#
-#     # Filter white color
-#     white_HSL_low = np.array([0, 255, 0])  # Hardcoded white HSL value
-#     brown_HSL_high = np.array([255, 255, 255])
-#     frame_white = cv2.inRange(frame_HSL, white_HSL_low, brown_HSL_high)
-#
-#     # Noise filtering
-#     # frame_green = cv2.morphologyEx(frame_green, cv2.MORPH_OPEN, kernel)
-#     # frame_green = cv2.morphologyEx(frame_green, cv2.MORPH_CLOSE, kernel)
-#
-#     # Edge detection between green and brown
-#     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-#     green_dilate = cv2.dilate(frame_green, kernel)
-#     # white_dilate = cv2.dilate(frame_white, kernel)
-#     green_white_edges = cv2.bitwise_and(green_dilate, white_dilate)
-#
-#     # Edge detection using morphological gradient
-#     # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(2,2))
-#     # frame_brown = cv2.morphologyEx(frame_brown, cv2.MORPH_GRADIENT, kernel)
-#
-#     baulk_line = hough_lines(green_brown_edges, num_lines=1)
-#
-#     return baulk_line
+def detect_baulk_line(frame: MatLike):
+    """
+    Function that detects the lines markings on the table
+    frame: BGR image
+    returns: baulk line in (rho, theta) format
+    """
+    # Filter white color
+    white_HSL_low = np.array([9, 113, 2])  # Hardcoded white HSL value
+    brown_HSL_high = np.array([13, 128, 10])
+    frame_white = cv2.inRange(frame, white_HSL_low, brown_HSL_high)
+
+    baulk_line = hough_lines(frame_white, num_lines=1)
+
+    return baulk_line
+
+
+def get_ball_centers(frame: MatLike) -> list:
+    """
+    frame: BGR image to detect the balls in
+    returns: list of ball centers and their colors [(color, [x, y]) ...]
+    """
+    img_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+    # NOTE: Hard-coded values
+    ranges = {
+        "yellow": [20, 35],
+        "brown": [4, 23],
+        "green": [71, 85],
+        "blue": [85, 110],
+    }
+    KERNEL_BALL_SIZE = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (8, 8))
+
+    centers = {}
+    for color, (lower, upper) in ranges.items():
+        ball = cv2.inRange(img_hsv[:, :, 0], np.array([lower]), np.array([upper]))
+        ball = cv2.erode(ball, KERNEL_BALL_SIZE)
+        # get the average (middle) pixel x and y coordinate of the eroded ball
+        centers[color] = np.mean(np.argwhere(ball != 0), axis=0, dtype=int)[::-1]
+
+    return list(centers.items())
