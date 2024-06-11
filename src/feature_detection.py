@@ -1,11 +1,10 @@
 import cv2
 import numpy as np
 from cv2.typing import MatLike
-
-# local imports
 from hough_line import hough_lines
 
 
+# FIXME: right edge is off
 def table_edges_detection(frame_BGR: MatLike) -> (MatLike, list):
     """
     Function that detects the hardcoded green and brown colors
@@ -70,26 +69,47 @@ def table_edges_detection(frame_BGR: MatLike) -> (MatLike, list):
     # Compute lines that fit the edges
     lines = hough_lines(edges_green_brown, num_lines=4)
 
-    if lines is None:
-        print("No lines found")
-        return frame_BGR
+    # NOTE: order is important
+    l_top = lines[0]
+    l_bot = lines[1]
+    l_rig = lines[2]
+    l_lef = lines[3]
 
-    # Draw lines from Hough transform
-    for rho, theta in lines:
-        a = np.cos(theta)
-        b = np.sin(theta)
-        x0 = a * rho
-        y0 = b * rho
-        x1 = int(x0 + 10000 * (-b))
-        y1 = int(y0 + 10000 * (a))
-        x2 = int(x0 - 10000 * (-b))
-        y2 = int(y0 - 10000 * (a))
+    def A_b(rho1, theta1, rho2, theta2):
+        A = np.array(
+            [
+                [np.cos(theta1), np.sin(theta1)],
+                [np.cos(theta2), np.sin(theta2)],
+            ]
+        )
+        b = np.array([[rho1, rho2]]).T
+        return A, b
 
-        cv2.line(frame_BGR, (x1, y1), (x2, y2), (0, 0, 255), 1)
-        line = np.cross([x1, y1, 1], [x2, y2, 1])
-        line = line / line[2]
+    # find the intersection points
+    # $\begin{bmatrix} \cos\theta_1 & \sin\theta_1 \\ \cos\theta_2 & \sin\theta_2 \end{bmatrix} \cdot \begin{bmatrix} x \\ y \end{bmatrix} = \begin{bmatrix} \rho_1 \\ \rho_2 \end{bmatrix}$
+    top_left = np.linalg.solve(*A_b(*l_top, *l_lef)).T.squeeze()
+    top_right = np.linalg.solve(*A_b(*l_top, *l_rig)).T.squeeze()
+    bottom_left = np.linalg.solve(*A_b(*l_bot, *l_lef)).T.squeeze()
+    bottom_right = np.linalg.solve(*A_b(*l_bot, *l_rig)).T.squeeze()
 
-    return frame_BGR, lines
+    # # Draw lines from Hough transform
+    # for rho, theta in lines:
+    #     a = np.cos(theta)
+    #     b = np.sin(theta)
+    #     x0 = a * rho
+    #     y0 = b * rho
+    #     x1 = int(x0 + 10000 * (-b))
+    #     y1 = int(y0 + 10000 * (a))
+    #     x2 = int(x0 - 10000 * (-b))
+    #     y2 = int(y0 - 10000 * (a))
+    #     cv2.line(frame_BGR, (x1, y1), (x2, y2), (0, 0, 255), 1)
+    #     img_show(frame_BGR)
+
+    # return frame_BGR, lines
+    return np.array(
+        [[top_left, top_right, bottom_right, bottom_left]],
+        dtype=np.int32,
+    )
 
 
 def detect_baulk_line(frame: MatLike):
@@ -108,10 +128,10 @@ def detect_baulk_line(frame: MatLike):
     return baulk_line
 
 
-def get_ball_centers(frame: MatLike) -> list:
+def get_ball_centers(frame: MatLike) -> dict:
     """
     frame: BGR image to detect the balls in
-    returns: list of ball centers and their colors [(color, [x, y]) ...]
+    returns: dictionary of ball colors and their centers {color: [x, y], ...}
     """
     img_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
@@ -131,4 +151,4 @@ def get_ball_centers(frame: MatLike) -> list:
         # get the average (middle) pixel x and y coordinate of the eroded ball
         centers[color] = np.mean(np.argwhere(ball != 0), axis=0, dtype=int)[::-1]
 
-    return list(centers.items())
+    return centers

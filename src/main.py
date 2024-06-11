@@ -2,9 +2,8 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from DLT import DLT
 from dotenv import dotenv_values
-
-# local imports
 from feature_detection import (
     detect_baulk_line,
     get_ball_centers,
@@ -25,48 +24,83 @@ def main():
     # scale = 0.5
     # reference_frame = cv2.resize(reference_frame, (0, 0), fx=scale, fy=scale)
 
-    line_frame, lines = table_edges_detection(reference_frame.copy())
-    mask = create_table_mask(lines, reference_frame.shape[:2])
+    # Find table boundaries and create a mask to hide irrelevant frame data
+    corners = table_edges_detection(reference_frame.copy())
+    mask = cv2.fillPoly(np.zeros(reference_frame.shape[:2], dtype=np.uint8), corners, 1)
 
+    # apply the mask
     reference_frame = cv2.bitwise_and(reference_frame, reference_frame, mask=mask)
+
+    # Find reference points (ball centers and baulk line)
     centers = get_ball_centers(reference_frame)
     (baulk_rho, baulk_theta) = detect_baulk_line(reference_frame)[0]
 
     # Calculate the coordinates where the balls are placed on the table
     ground_points = {}
-    for color, (x, _) in centers:
+    for color, (x, _) in centers.items():
         if color not in ["yellow", "brown", "green"]:
             continue
+
+        # $y = \frac{\rho - x\cos\theta}{\sin\theta}$
         y = (baulk_rho - x * np.cos(baulk_theta)) / np.sin(baulk_theta)
-        ground_points[color] = [x, int(y)]
+        ground_points[color + "_table"] = [x, int(y)]
 
-    for _, (x, y) in centers + list(ground_points.items()):
-        reference_frame[y, x] = (0, 0, 255)
+    image_points = centers | ground_points
 
-    img_show(reference_frame)
+    x_points = np.array(
+        [
+            image_points["yellow"],
+            image_points["yellow_table"],
+            image_points["brown"],
+            image_points["brown_table"],
+            image_points["green"],
+            image_points["green_table"],
+            image_points["blue"],
+            # play area corners
+            *corners[0],
+        ]
+    )
+
+    # http://www.fcsnooker.co.uk/billiards/the_table_and%20table_markings.htm
+    X_points = np.array(
+        [
+            # balls
+            [-0.292, 1.0475, 0.02625],  # yellow
+            [-0.292, 1.0475, 0.0],  # yellow_table
+            [0.0, 1.0475, 0.02625],  # brown
+            [0.0, 1.0475, 0.0],  # brown_table
+            [0.292, 1.0475, 0.02625],  # green
+            [0.292, 1.0475, 0.0],  # green_table
+            [0.0, 0.0, 0.02625],  # blue
+            # play area corners
+            [-0.934, 1.829, 0.03],  # top-left
+            [0.934, 1.829, 0.03],  # top-right
+            [0.934, -1.829, 0.03],  # bottom-right
+            [-0.934, -1.829, 0.03],  # bottom-left
+        ]
+    )
+
+    # DLT
+    P = DLT(X_points, x_points)
+    M = P[:, :3]  # Rotation matrix of the camera
+    P_inv = np.linalg.pinv(P)
+    print("M:", M)
+    print("P:", P)
+
+    # for i in range(len(X_points)):
+    #     Xi = [*X_points[i], 1]
+    #     duot = np.dot(P, Xi)
+    #     duot = duot / duot[-1]
+    #     print(
+    #         f"calc: ({duot[0]:.0f}; {duot[1]:.0f})\nactu: ({x_points[i][0]}; {x_points[i][1]})"
+    #     )
+
+    # for _, (x, y) in image_points.items():
+    #     reference_frame[y, x] = (0, 0, 255)
+    # img_show(reference_frame)
 
     # TODO:
     # process_video(data_path / "WSC.mp4")
-
-
-def create_table_mask(lines: list, shape) -> np.ndarray:
-    """
-    Creates a mask for the play area given the 4 lines defining the borders
-    lines: list of lines in polar coordinates (rho, theta) from Hough transform
-    shape: the 2D shape of the frame that the mask will be created
-    """
-    y, x = np.indices(shape)
-    mask = np.ones(shape, dtype=np.uint8)
-    for rho, theta in lines:
-        # TODO: there should be a better way check which side to pick
-        if rho * np.sin(theta) > 50:
-            m = x * np.cos(theta) + y * np.sin(theta) > rho
-        else:
-            m = x * np.cos(theta) + y * np.sin(theta) < rho
-        # m = (m - np.min(m)) / (np.max(m) - np.min(m)) * 255
-        # m = m.astype(np.uint8)
-        mask = mask * m
-    return mask
 
 
 def process_video(video_path: Path):

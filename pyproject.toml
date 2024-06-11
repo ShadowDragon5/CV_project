@@ -9,6 +9,8 @@ package-mode = false
 python = "^3.11"
 opencv-python = "^4.9.0.80"
 python-dotenv = "^1.0.1"
+scipy = "^1.13.1"
+sympy = "^1.12.1"
 
 [tool.ruff]
 extend-select = ["I"]
