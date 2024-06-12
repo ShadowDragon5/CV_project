@@ -3,7 +3,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 from cv2.typing import MatLike
-from DLT import DLT
+from DLT import DLT_normalized
 from dotenv import dotenv_values
 from feature_detection import (
     detect_baulk_line,
@@ -14,6 +14,20 @@ from highlight_detection import detect_highlight
 from light_related_stuff import compute_ball_center_from_specular_reflection
 from preprocessing import compare_score_tag, extract_score_tag
 from utils import VideoReader, img_show
+
+PALETTE = {
+    "black": (40, 29, 21),
+    "blue": (186, 143, 79),
+    "brown": (44, 44, 96),
+    "green": (67, 167, 117),
+    "pink": (151, 81, 198),
+    "red": (48, 48, 165),
+    "table": (46, 86, 37),
+    "white": (233, 237, 235),
+    "yellow": (65, 158, 222),
+    "red1": (48, 48, 165),
+    "red2": (48, 48, 165),
+}
 
 
 def main():
@@ -92,7 +106,7 @@ def main():
     )
 
     # DLT
-    P = DLT(X_points, x_points)
+    P = DLT_normalized(X_points, x_points)
     M = P[:, :3]  # Rotation matrix of the camera
     # P_inv = np.linalg.pinv(P)
     camera = -np.linalg.inv(M).dot(P[:, 3].transpose())
@@ -115,6 +129,17 @@ def main():
         sample_score_tag = extract_score_tag(reference_frame)
         filter_video(video_path, filtered_path, sample_score_tag)
 
+    # Prep rendering
+    w_world = 1.868
+    h_world = 3.658
+    h_img = reference_frame.shape[0]
+    scale = h_img / h_world
+    w_img = int(scale * w_world)
+    table = np.full((h_img, w_img, 3), PALETTE["table"], dtype=np.uint8)
+
+    baulk_line = int(scale * (-1.0475 + h_world / 2))
+    table[baulk_line] = PALETTE["white"]
+
     for frame in VideoReader(filtered_path, max_count=25_000):
         masked_frame = cv2.bitwise_and(frame, frame, mask=mask)
 
@@ -123,11 +148,11 @@ def main():
         #     P, camera, LIGHT_HARDCODED, specular_out
         # )
 
-        # for _, (x, y, _) in res:
-        #     reference_frame[y, x] = (0, 0, 255)
+        table_frame = draw_balls(table.copy(), X_points, scale, w_world, h_world)
 
         # display result
-        cv2.imshow("Video", masked_frame)
+        display = np.concatenate((masked_frame, table_frame), axis=1)
+        cv2.imshow("Video", display)
 
         # window closing
         key = cv2.waitKey(10)
@@ -137,6 +162,41 @@ def main():
         ):
             cv2.destroyAllWindows()
             break
+
+
+def draw_balls(frame, ball_coordinates, scale, w_world, h_world):
+    """Draws the balls on a given frame from world coordinates"""
+    radius = int(scale * 0.02625) + 1
+    for i, (x, y, _) in enumerate(ball_coordinates):
+        x = int(scale * (x + w_world / 2))
+        y = int(scale * (-y + h_world / 2))
+        cv2.circle(
+            frame,
+            (x, y),
+            radius,
+            list(PALETTE.values())[i],
+            thickness=-1,
+        )
+
+        # add a highlight and a shadow around the ball
+        overlay = frame.copy()
+        cv2.circle(
+            overlay,
+            (x, y),
+            radius,
+            PALETTE["black"],
+            thickness=1,
+        )
+        cv2.circle(
+            overlay,
+            (x, y - 3),
+            1,
+            PALETTE["white"],
+            thickness=-1,
+        )
+        frame = cv2.addWeighted(overlay, 0.75, frame, 0.25, 0)
+
+    return frame
 
 
 def filter_video(in_path: Path, out_path: Path, sample_tag: MatLike):
