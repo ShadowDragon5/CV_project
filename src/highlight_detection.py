@@ -257,6 +257,9 @@ def detect_highlight(frame, version="max"):
 
         highlight_coordinates = np.where(highlight_pixels > 0)
 
+        if len(highlight_coordinates[0]) == 0:
+            continue
+
         if COLORS[index] == "red":
             largest_groups = get_n_largest_groups(highlight_pixels, n=15)
             # get mean per group
