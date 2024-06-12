@@ -19,18 +19,18 @@ def table_edges_detection(frame_BGR: MatLike) -> (MatLike, list):
 
     # Filter green color
     # NOTE: Hard-coded green HSV value
-    GREEN_HSV_LOW = np.array([50, 200, 50])
-    GREEN_HSV_HIGH = np.array([70, 255, 220])
+    GREEN_HSV_LOW = np.array([55, 100, 50])
+    GREEN_HSV_HIGH = np.array([65, 255, 220])
     frame_green = cv2.inRange(frame_HSV, GREEN_HSV_LOW, GREEN_HSV_HIGH)
 
     # Filter brown color
     # NOTE: Hard-coded brown HSV value
     BROWN_HSV_LOW = np.array([0, 0, 20])
-    BROWN_HSV_HIGH = np.array([20, 200, 150])
+    BROWN_HSV_HIGH = np.array([5, 200, 150])
     frame_brown_1 = cv2.inRange(frame_HSV, BROWN_HSV_LOW, BROWN_HSV_HIGH)
 
     # NOTE: Hard-coded another brown HSV value
-    BROWN_HSV_LOW = np.array([120, 0, 20])
+    BROWN_HSV_LOW = np.array([130, 0, 20])
     BROWN_HSV_HIGH = np.array([180, 200, 150])
     frame_brown_2 = cv2.inRange(frame_HSV, BROWN_HSV_LOW, BROWN_HSV_HIGH)
 
@@ -42,20 +42,21 @@ def table_edges_detection(frame_BGR: MatLike) -> (MatLike, list):
 
     # Dilate green and brown so that they overlap
     # NOTE: Hard-coded value
-    KERNEL_SMALL = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
+    KERNEL_SMALL = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
     brown_dilate = cv2.dilate(frame_brown, KERNEL_SMALL)
-    green_dilate = cv2.dilate(frame_green, KERNEL_SMALL)
+    KERNEL_VERY_SMALL = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
+    green_dilate = cv2.dilate(frame_green, KERNEL_VERY_SMALL)
 
     # Remove some balls from the green playing area (red balls are too big of a blob)
     # NOTE: Hard-coded value
-    KERNEL_BALL_SIZE = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
-    green_close = cv2.morphologyEx(green_dilate, cv2.MORPH_CLOSE, KERNEL_BALL_SIZE)
+    #KERNEL_BALL_SIZE = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
+    #green_close = cv2.morphologyEx(green_dilate, cv2.MORPH_CLOSE, KERNEL_BALL_SIZE)
 
     # Get a thin edge of the green playing area
     # NOTE: Hard-coded value
     KERNEL_VERY_SMALL = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
     green_gradient = cv2.morphologyEx(
-        green_close, cv2.MORPH_GRADIENT, KERNEL_VERY_SMALL
+        green_dilate, cv2.MORPH_GRADIENT, KERNEL_VERY_SMALL
     )
 
     # Intersect the green edge with the brown mask to obtain green/brow edges

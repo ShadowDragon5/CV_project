@@ -46,9 +46,9 @@ def hough_lines(binary_img, rho_step=0.5, theta_step=0.5, num_lines=4):
         )
         lines.append((rhos[rho_max_i], thetas[theta_max_i]))
         r_window = (
-            10  # Assumption on the lines we want to detect having notably different rho
+            20  # Assumption on the lines we want to detect having notably different rho
         )
-        t_window = 10  # Lines we want to detect have different theta
+        t_window = 20  # Lines we want to detect have different theta
         for r_w in range(-r_window, r_window + 1):
             r_w_mod = min(max((rho_max_i + r_w), 0), len(rhos))
             for t_w in range(-t_window, t_window + 1):
