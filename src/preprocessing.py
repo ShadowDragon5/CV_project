@@ -33,7 +33,7 @@ def extract_score_tag(frame: MatLike) -> MatLike:
 
 # Resolution agnostic comparison of score tags
 # TODO: reduce the amount of pixels checked, uniform sparse sampling
-def compare_score_tag(baseline, sample):
+def compare_score_tag(baseline, sample, tolerance=0.15) -> bool:
     baseline_width, baseline_height, _ = baseline.shape
     sample_width, sample_height, _ = sample.shape
 
@@ -52,7 +52,6 @@ def compare_score_tag(baseline, sample):
     diff_score = np.sum(diff)
 
     # Tolerance on error (max allowed score)
-    expected_average_pixel_error = 15 / 100  # Handpicked
-    threshold = expected_average_pixel_error * (width * height)
+    threshold = tolerance * (width * height * 3) * 255
 
     return diff_score < threshold

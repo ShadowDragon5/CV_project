@@ -2,6 +2,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from cv2.typing import MatLike
 from DLT import DLT
 from dotenv import dotenv_values
 from feature_detection import (
@@ -9,6 +10,9 @@ from feature_detection import (
     get_ball_centers,
     table_edges_detection,
 )
+from highlight_detection import detect_highlight
+from light_related_stuff import compute_ball_center_from_specular_reflection
+from preprocessing import compare_score_tag, extract_score_tag
 from utils import VideoReader, img_show
 
 
@@ -68,6 +72,7 @@ def main():
     )
 
     # http://www.fcsnooker.co.uk/billiards/the_table_and%20table_markings.htm
+    # we are detecting the play area +2 inches for the cushions
     X_points = np.array(
         [
             # balls
@@ -78,7 +83,7 @@ def main():
             [0.292, 1.0475, 0.02625],  # green
             [0.292, 1.0475, 0.0],  # green_table
             [0.0, 0.0, 0.02625],  # blue
-            # play area corners
+            # play area + cushions corners
             [-0.934, 1.829, 0.03],  # top-left
             [0.934, 1.829, 0.03],  # top-right
             [0.934, -1.829, 0.03],  # bottom-right
@@ -89,41 +94,42 @@ def main():
     # DLT
     P = DLT(X_points, x_points)
     M = P[:, :3]  # Rotation matrix of the camera
-    P_inv = np.linalg.pinv(P)
-    print("M:", M)
-    print("P:", P)
+    # P_inv = np.linalg.pinv(P)
+    camera = -np.linalg.inv(M).dot(P[:, 3].transpose())
 
-    # for i in range(len(X_points)):
-    #     Xi = [*X_points[i], 1]
-    #     duot = np.dot(P, Xi)
-    #     duot = duot / duot[-1]
-    #     print(
-    #         f"calc: ({duot[0]:.0f}; {duot[1]:.0f})\nactu: ({x_points[i][0]}; {x_points[i][1]})"
-    #     )
+    LIGHT_HARDCODED = [0, -3, 6]
 
     # for _, (x, y) in image_points.items():
     #     reference_frame[y, x] = (0, 0, 255)
-    # img_show(reference_frame)
+    # img_show(reference_frame, "with centers")
 
-    # TODO:
-    # process_video(data_path / "WSC.mp4")
+    # Video processing
+    video_path = data_path / "WSC.mp4"
 
-
-def process_video(video_path: Path):
     filtered_path = video_path.with_name(
         video_path.stem + "_filtered" + video_path.suffix
     )
-    # TODO: use reader to make sure the filtered file exists
-    reader = (
-        VideoReader(filtered_path)
-        if filtered_path.exists()
-        else get_filtered_frames(video_path)
-    )
 
-    # OPTIMIZE:
-    for frame in VideoReader(video_path, max_count=25_000):
-        cv2.imshow("Video", frame)
+    # Create a filtered video if it doesn't exist (might take ~15mins)
+    if not filtered_path.exists():
+        sample_score_tag = extract_score_tag(reference_frame)
+        filter_video(video_path, filtered_path, sample_score_tag)
 
+    for frame in VideoReader(filtered_path, max_count=25_000):
+        masked_frame = cv2.bitwise_and(frame, frame, mask=mask)
+
+        # specular_out = detect_highlight(masked_frame)
+        # res = compute_ball_center_from_specular_reflection(
+        #     P, camera, LIGHT_HARDCODED, specular_out
+        # )
+
+        # for _, (x, y, _) in res:
+        #     reference_frame[y, x] = (0, 0, 255)
+
+        # display result
+        cv2.imshow("Video", masked_frame)
+
+        # window closing
         key = cv2.waitKey(10)
         if (
             cv2.getWindowProperty("Video", cv2.WND_PROP_VISIBLE) < 1  # window is closed
@@ -133,99 +139,25 @@ def process_video(video_path: Path):
             break
 
 
-# TODO: move frame filtering logic here
-def get_filtered_frames(video_path):
-    gen1 = VideoReader(video_path)
-    gen2 = VideoReader(video_path)
-    next(gen2)
-    for f1, f2 in zip(gen1, gen2):
-        yield f1 - f2
+def filter_video(in_path: Path, out_path: Path, sample_tag: MatLike):
+    reader = VideoReader(in_path)
 
+    fps = reader.video.get(cv2.CAP_PROP_FPS)
+    shape = (
+        int(reader.video.get(cv2.CAP_PROP_FRAME_WIDTH)),
+        int(reader.video.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+    )
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    writer = cv2.VideoWriter(str(out_path), fourcc, fps, shape)
 
-# path = ".data/"
-#
-# # Input data
-# video_in = cv2.VideoCapture(path + "WSC.mp4")
-# sample_score_tag = cv2.imread(path + "WSC sample-score-tag.png")
-#
-# # Codec information
-# fourcc_in = int(video_in.get(cv2.CAP_PROP_FOURCC))
-# codec_string_in = fourcc_in.to_bytes(4, byteorder=sys.byteorder).decode().upper()
-# # print(codec_string_in)
-#
-# # General interest
-# fps_in = video_in.get(cv2.CAP_PROP_FPS)
-# modulus = 2**2  # cycle of frames skipped
-# fps_out = fps_in  # fps_in/modulus #rescaled fps, can be float
-# downscale_ratio = 1 / 2**3  # downscale in resolution
-# width_out = int(video_in.get(3) * downscale_ratio)  # rounding with int or round?
-# height_out = int(video_in.get(4) * downscale_ratio)
-#
-# # Output video data
-# fourcc_out = cv2.VideoWriter_fourcc("m", "p", "4", "v")  # works on Nico's Linux
-# # fourcc_out = cv2.VideoWriter_fourcc('F','M','P','4')
-# # fourcc_out = cv2.VideoWriter_fourcc('X','2','6','4')
-# file_extension_out = "mp4"  # try avi
-# file_name_out = "Course-Project-out"
-# path_out = path + file_name_out + "." + file_extension_out
-# video_out = cv2.VideoWriter(path_out, fourcc_out, fps_in, (width_out, height_out))
-#
-# # Iterating flags and counter
-# process_only_first_frame = False
-# first_frame_flag = True
-# frame_counter = 1
-# frame_counter_mod = 0  # counter to drop frames by modulus
-# relevant_frame_counter = (
-#     0  # counter of frame that passed the filter (workload approximation)
-# )
-# frame_out = np.zeros((height_out, width_out, 3), np.uint8)
-#
-# ret, frame_in = video_in.read()
-# # Main loop
-# while ret and frame_counter < 25000:  # around minute 12
-#     if process_only_first_frame and not first_frame_flag:
-#         break
-#
-#     compute_flag = frame_counter_mod == 0  # Condition to execute main on frame
-#     if compute_flag:
-#         # Downsize for faster execution
-#         frame = cv2.resize(frame_in, (width_out, height_out))
-#
-#         # Decide if drop frame
-#         frame_score_tag = extract_score_tag(frame)
-#         frame_is_relevant = compare_score_tag(sample_score_tag, frame_score_tag)
-#         # print(frame_is_relevant)
-#         write_flag = frame_is_relevant  # drop frame from writing if irrelevant
-#         relevant_frame_counter += frame_is_relevant
-#
-#         # Call to important part of the code and update frame_out
-#         frame_out = main_stub(frame)
-#
-#         # Visualize process
-#         # cv2.imshow('output_frame',output_frame)
-#
-#     # Out
-#     if first_frame_flag and process_only_first_frame:
-#         cv2.imwrite(path + "first_frame.png", frame_out)
-#     elif (
-#         write_flag and frame_counter_mod == 0
-#     ):  # Drop writing repeat for modulus frames
-#         video_out.write(
-#             frame_out
-#         )  # for every frame in there is a frame out (realtime), or drop mod frames
-#
-#     # Update next frame conditions
-#     first_frame_flag = False
-#     previous_frame = frame_out
-#     frame_counter += 1
-#     frame_counter_mod = (frame_counter_mod + 1) % modulus
-#     ret, frame_in = video_in.read()
-#
-# print(relevant_frame_counter)
-#
-# # Close file
-# video_in.release()
-# video_out.release()
+    # NOTE: scaling down the frame is slower (40s vs 36s for first 13mins)
+    for frame in reader:
+        frame_score_tag = extract_score_tag(frame)
+        if compare_score_tag(sample_tag, frame_score_tag, 0.05):
+            writer.write(frame)
+
+    writer.release()
+
 
 if __name__ == "__main__":
     main()

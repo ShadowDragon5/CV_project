@@ -28,10 +28,11 @@ class VideoReader:
         return self
 
     def __next__(self) -> MatLike:
-        if not self.video.isOpened() or self.count == 0:
+        _, frame = self.video.read()
+
+        if frame is None or self.count == 0:
             self.video.release()
             raise StopIteration
 
-        _, frame = self.video.read()
         self.count -= 1
         return frame
