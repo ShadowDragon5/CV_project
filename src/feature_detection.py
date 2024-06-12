@@ -4,7 +4,6 @@ from cv2.typing import MatLike
 from hough_line import hough_lines
 
 
-# FIXME: right edge is off
 def table_edges_detection(frame_BGR: MatLike) -> (MatLike, list):
     """
     Function that detects the hardcoded green and brown colors
@@ -49,8 +48,8 @@ def table_edges_detection(frame_BGR: MatLike) -> (MatLike, list):
 
     # Remove some balls from the green playing area (red balls are too big of a blob)
     # NOTE: Hard-coded value
-    #KERNEL_BALL_SIZE = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
-    #green_close = cv2.morphologyEx(green_dilate, cv2.MORPH_CLOSE, KERNEL_BALL_SIZE)
+    # KERNEL_BALL_SIZE = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
+    # green_close = cv2.morphologyEx(green_dilate, cv2.MORPH_CLOSE, KERNEL_BALL_SIZE)
 
     # Get a thin edge of the green playing area
     # NOTE: Hard-coded value
@@ -113,7 +112,7 @@ def table_edges_detection(frame_BGR: MatLike) -> (MatLike, list):
     )
 
 
-def detect_baulk_line(frame: MatLike):
+def detect_baulk_line(frame: MatLike) -> tuple:
     """
     Function that detects the lines markings on the table
     frame: BGR image
@@ -126,7 +125,7 @@ def detect_baulk_line(frame: MatLike):
 
     baulk_line = hough_lines(frame_white, num_lines=1)
 
-    return baulk_line
+    return baulk_line[0]
 
 
 def get_ball_centers(frame: MatLike) -> dict:
@@ -139,7 +138,7 @@ def get_ball_centers(frame: MatLike) -> dict:
     # NOTE: Hard-coded values
     ranges = {
         "yellow": [20, 35],
-        "brown": [4, 23],
+        "brown": [15, 23],
         "green": [71, 85],
         "blue": [85, 110],
     }
@@ -148,8 +147,8 @@ def get_ball_centers(frame: MatLike) -> dict:
     centers = {}
     for color, (lower, upper) in ranges.items():
         ball = cv2.inRange(img_hsv[:, :, 0], np.array([lower]), np.array([upper]))
-        ball = cv2.erode(ball, KERNEL_BALL_SIZE)
+        eroded = cv2.erode(ball, KERNEL_BALL_SIZE)
         # get the average (middle) pixel x and y coordinate of the eroded ball
-        centers[color] = np.mean(np.argwhere(ball != 0), axis=0, dtype=int)[::-1]
+        centers[color] = np.mean(np.argwhere(eroded != 0), axis=0, dtype=int)[::-1]
 
     return centers

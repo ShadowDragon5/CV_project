@@ -20,20 +20,26 @@ def main():
     print(f"Processing {ref_frame_path}...")
     reference_frame = cv2.imread(ref_frame_path, cv2.IMREAD_COLOR)
 
-    # # scale the frame
-    # scale = 0.5
-    # reference_frame = cv2.resize(reference_frame, (0, 0), fx=scale, fy=scale)
-
     # Find table boundaries and create a mask to hide irrelevant frame data
     corners = table_edges_detection(reference_frame.copy())
     mask = cv2.fillPoly(np.zeros(reference_frame.shape[:2], dtype=np.uint8), corners, 1)
 
+    # Show the selected area
+    mask_neg = cv2.fillPoly(
+        np.ones(reference_frame.shape[:2], dtype=np.uint8), corners, 0
+    )
+    reference_frame_neg = cv2.bitwise_and(
+        reference_frame, reference_frame, mask=mask_neg
+    )
+    # img_show(reference_frame_neg)
+
     # apply the mask
-    reference_frame = cv2.bitwise_and(reference_frame, reference_frame, mask=mask)
+    masked_frame = cv2.bitwise_and(reference_frame, reference_frame, mask=mask)
+    # img_show(masked_frame)
 
     # Find reference points (ball centers and baulk line)
-    centers = get_ball_centers(reference_frame)
-    (baulk_rho, baulk_theta) = detect_baulk_line(reference_frame)[0]
+    centers = get_ball_centers(masked_frame)
+    (baulk_rho, baulk_theta) = detect_baulk_line(masked_frame)
 
     # Calculate the coordinates where the balls are placed on the table
     ground_points = {}
