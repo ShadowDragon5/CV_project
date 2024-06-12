@@ -1,6 +1,7 @@
+import itertools
+
 import cv2
 import numpy as np
-import itertools
 from utils import img_show
 
 # NOTE: Hard-coded vaues:
@@ -89,13 +90,14 @@ def merge_groups(groups, ignore_groups):
         ignore_groups += [current_index]
     return groups, False, ignore_groups
 
+
 def get_groups(mask, n=1):
     """
     Given a mask, returns the n pargest patches/groups of pixels with value 255.
     """
     # NOTE: Hard-coded value of the mask's value
     candidates = np.where(mask == 255)
-    
+
     groups = []
     for px, py in zip(candidates[0], candidates[1]):
         added = False
@@ -137,48 +139,50 @@ def matches_window(frame, lower_mask, color_min_upper, color_max_upper):
             print("image window out of bounds")
     return matchings
 
-def morphological_filter(group, dil_iter=0, ero_iter=0):
-    #remove duplicates (uncaught bug)
-    group.sort()
-    group = list(group for group,_ in itertools.groupby(group))
-    
-    #Area filter
-        
-    #create zero's matrix as background
-    ball_template = np.zeros((4*dil_iter+20,4*dil_iter+20))
 
-    #insert template ball
-    ball_template[2*dil_iter:2*dil_iter+20, 2*dil_iter:2*dil_iter+20] = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
-    
+def morphological_filter(group, dil_iter=0, ero_iter=0):
+    # remove duplicates (uncaught bug)
+    group.sort()
+    group = list(group for group, _ in itertools.groupby(group))
+
+    # Area filter
+
+    # create zero's matrix as background
+    ball_template = np.zeros((4 * dil_iter + 20, 4 * dil_iter + 20))
+
+    # insert template ball
+    ball_template[
+        2 * dil_iter : 2 * dil_iter + 20, 2 * dil_iter : 2 * dil_iter + 20
+    ] = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
+
     ball_template = cv2.erode(ball_template, None, iterations=ero_iter)
     ball_template = cv2.dilate(ball_template, None, iterations=dil_iter + ero_iter)
-    #img_show(ball_template*255)
-    
+    # img_show(ball_template*255)
+
     area_ball = np.sum(ball_template)
-    print("Area",area_ball * 1.2,len(group))
+    # print("Area", area_ball * 1.2, len(group))
     if len(group) > area_ball * 1.2:
-        tmp = np.zeros((720,1280))
-        for [x,y] in group:
-            if tmp[x,y] == 0:
-                tmp[x,y] = 255
+        tmp = np.zeros((720, 1280))
+        for [x, y] in group:
+            if tmp[x, y] == 0:
+                tmp[x, y] = 255
             else:
                 print("PANIK")
         img_show(tmp)
-        print("Area fail")
+        # print("Area fail")
         return False
-    
-    
-    #Bounding box (orthogonal diameter)
-    diameter_ball = 20+2*dil_iter
+
+    # Bounding box (orthogonal diameter)
+    diameter_ball = 20 + 2 * dil_iter
     group_x = [pixel[0] for pixel in group]
     group_y = [pixel[1] for pixel in group]
-    diameter_x = np.max(group_x)-np.min(group_x)
-    diameter_y = np.max(group_y)-np.min(group_y)
-    diameter_group = max(diameter_x,diameter_y)
+    diameter_x = np.max(group_x) - np.min(group_x)
+    diameter_y = np.max(group_y) - np.min(group_y)
+    diameter_group = max(diameter_x, diameter_y)
     if diameter_group > diameter_ball * 1.2:
         print("Diameter fail")
         return False
-    print("Diameter", diameter_ball, diameter_group)
+    # print("Diameter", diameter_ball, diameter_group)
 
     return True
 
@@ -216,7 +220,7 @@ def detect_highlight(frame, version="max"):
     mask_green = cv2.inRange(hsv_frame, MIN_GREEN, MAX_GREEN)
     mask_white = cv2.inRange(hsv_frame, MIN_WHITE, MAX_WHITE)
     mask_black = cv2.inRange(hsv_frame, MIN_BLACK, MAX_BLACK)
-    #img_show(mask_black)
+    # img_show(mask_black)
 
     raw_masks = [
         mask_blue,
@@ -244,11 +248,15 @@ def detect_highlight(frame, version="max"):
             eroded_mask, None, iterations=dilate_iterations + erode_iterations
         )
 
-        groups = get_groups(dilated_mask,dilate_iterations-erode_iterations)
-        
-        #Decapsulate
-        #Filter groups
-        groups = [group for group in groups if morphological_filter(group,dilate_iterations,erode_iterations)]
+        groups = get_groups(dilated_mask, dilate_iterations - erode_iterations)
+
+        # Decapsulate
+        # Filter groups
+        groups = [
+            group
+            for group in groups
+            if morphological_filter(group, dilate_iterations, erode_iterations)
+        ]
         if len(groups) == 0:
             print("No ball found")
             continue
@@ -301,7 +309,7 @@ def detect_highlight(frame, version="max"):
 
         highlight_pixels = cv2.inRange(cropped_frame, min_highlight, max_highlight)
         high = cv2.cvtColor(highlight_pixels, cv2.COLOR_GRAY2BGR)
-        #img_show(np.concatenate((cropped_frame, high), axis=0))
+        # img_show(np.concatenate((cropped_frame, high), axis=0))
 
         highlight_coordinates = np.where(highlight_pixels > 0)
 
@@ -309,7 +317,7 @@ def detect_highlight(frame, version="max"):
             continue
 
         if COLORS[index] == "red":
-            #get n biggest highlight
+            # get n biggest highlight
             groups = get_groups(highlight_pixels)
             largest_groups = groups[:15]
             # get mean per group
@@ -330,7 +338,7 @@ def detect_highlight(frame, version="max"):
 
         else:
             highlight_mean = np.mean(highlight_coordinates, axis=1)
-            highlight_max = (max(highlight_coordinates[0]), highlight_mean[1])
+            highlight_max = [(max(highlight_coordinates[0]), highlight_mean[1])]
 
             # print(COLORS[index], highlight_mean)
         highlight_mean = np.array(highlight_mean)
@@ -386,17 +394,17 @@ if __name__ == "__main__":
     results = detect_highlight(frame)
 
     # for color, coords, nani in results:
-        # print(color, coords)
+    # print(color, coords)
 
     # # show the highlights
     # new = frame.copy()
     # new[int(results[0][1][0]), int(results[0][1][1])] = [255, 0, 0]
     # for r in results[1][1]:
-        # print(int(r[0]), int(r[1]))
-        # new[int(r[0]), int(r[1])] = [255, 0, 0]
+    # print(int(r[0]), int(r[1]))
+    # new[int(r[0]), int(r[1])] = [255, 0, 0]
     # for r in results[2:]:
-        # print(r[1][0], r[1][1])
-        # new[int(r[1][0]), int(r[1][1])] = [255, 0, 0]
+    # print(r[1][0], r[1][1])
+    # new[int(r[1][0]), int(r[1][1])] = [255, 0, 0]
     # cv2.imshow("result", new)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()

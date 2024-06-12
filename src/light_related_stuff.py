@@ -52,45 +52,49 @@ def compute_light_position_from_ball_center(P, Camera, Specular_out, Balls_xyz):
 
 
 def compute_ball_center_from_specular_reflection(P, Camera, Light, Specular_out):
+    P_inv = np.linalg.pinv(P)
     balls_centers = []
     for color, Specular_uv, mask_img in Specular_out:
-        Specular_homogeneus = np.append(Specular_uv, [1])
-        # Camera coord of specular -> Camera line (multiply by inverse of P)
-        Specular_world_coord = P_inv.dot(Specular_homogeneus)
-        # Line from camera origin to Specular_i
-        Camera_line = {
-            "origin": Camera,
-            "vector": Specular_world_coord[:3] - Camera,  # vector b-a
-        }
-        # Normalize
-        Camera_line["vector"] *= 1 / np.linalg.norm(Camera_line["vector"])
+        balls_xyz = []
+        for ball_uv in Specular_uv:
+            Specular_homogeneus = np.append(ball_uv, [1])
+            # Camera coord of specular -> Camera line (multiply by inverse of P)
+            Specular_world_coord = P_inv.dot(Specular_homogeneus)
+            # Line from camera origin to Specular_i
+            Camera_line = {
+                "origin": Camera,
+                "vector": Specular_world_coord[:3] - Camera,  # vector b-a
+            }
+            # Normalize
+            Camera_line["vector"] *= 1 / np.linalg.norm(Camera_line["vector"])
 
-        # Solving inverse problem
+            # Solving inverse problem
 
-        # Distance of specular from camera origin (parameter lambda)
-        distance = Symbol("d", real=True, positive=True)
-        # Equation of specular coordinates with respect to distance
-        Specular_xyz = Matrix(Camera_line["origin"]) + distance * Matrix(
-            Camera_line["vector"]
-        )
-        # Vector from specular to light source
-        light_vec = (Matrix(Light) - Specular_xyz).normalized()
-        # Normal vector at specular
-        normal_vec = (-Matrix(Camera_line["vector"]) + light_vec).normalized()
-        # Ball center with respect to distance and radius
-        radius_ball = 0.02625  # in meters
-        Ball_xyz = Specular_xyz - normal_vec * radius_ball
+            # Distance of specular from camera origin (parameter lambda)
+            distance = Symbol("d", real=True, positive=True)
+            # Equation of specular coordinates with respect to distance
+            Specular_xyz = Matrix(Camera_line["origin"]) + distance * Matrix(
+                Camera_line["vector"]
+            )
+            # Vector from specular to light source
+            light_vec = (Matrix(Light) - Specular_xyz).normalized()
+            # Normal vector at specular
+            normal_vec = (-Matrix(Camera_line["vector"]) + light_vec).normalized()
+            # Ball center with respect to distance and radius
+            radius_ball = 0.02625  # in meters
+            Ball_xyz = Specular_xyz - normal_vec * radius_ball
 
-        # Solve for known height of ball center
-        f_z = Ball_xyz[2] - radius_ball
-        # and convert from sympy to scipy
-        f_z = lambdify(distance, f_z, "scipy")
-        # Use non-linear solver of scipy
-        distance_approx = fsolve(f_z, [1])  # Set initial guess to 1
-        # Use aproximation to compute coordinates of center
-        Ball_xyz = Camera_line["origin"] + distance_approx * Camera_line["vector"]
+            # Solve for known height of ball center
+            f_z = Ball_xyz[2] - radius_ball
+            # and convert from sympy to scipy
+            f_z = lambdify(distance, f_z, "scipy")
+            # Use non-linear solver of scipy
+            distance_approx = fsolve(f_z, [1])  # Set initial guess to 1
+            # Use aproximation to compute coordinates of center
+            Ball_xyz = Camera_line["origin"] + distance_approx * Camera_line["vector"]
+            balls_xyz.append(Ball_xyz)
 
-        balls_centers.append((color, Ball_xyz))
+        balls_centers.append((color, balls_xyz))
 
     return balls_centers
 

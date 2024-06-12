@@ -3,7 +3,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 from cv2.typing import MatLike
-from DLT import DLT_normalized
+from DLT import DLT, DLT_normalized
 from dotenv import dotenv_values
 from feature_detection import (
     detect_baulk_line,
@@ -107,8 +107,8 @@ def main():
 
     # DLT
     P = DLT_normalized(X_points, x_points)
+    # P = DLT(X_points, x_points)
     M = P[:, :3]  # Rotation matrix of the camera
-    # P_inv = np.linalg.pinv(P)
     camera = -np.linalg.inv(M).dot(P[:, 3].transpose())
 
     LIGHT_HARDCODED = [0, -3, 6]
@@ -143,12 +143,14 @@ def main():
     for frame in VideoReader(filtered_path, max_count=25_000):
         masked_frame = cv2.bitwise_and(frame, frame, mask=mask)
 
-        # specular_out = detect_highlight(masked_frame)
-        # res = compute_ball_center_from_specular_reflection(
-        #     P, camera, LIGHT_HARDCODED, specular_out
-        # )
+        specular_out = detect_highlight(masked_frame)
 
-        table_frame = draw_balls(table.copy(), X_points, scale, w_world, h_world)
+        res = compute_ball_center_from_specular_reflection(
+            P, camera, LIGHT_HARDCODED, specular_out
+        )
+        print(res)
+
+        table_frame = draw_balls(table.copy(), res, scale, w_world, h_world)
 
         # display result
         display = np.concatenate((masked_frame, table_frame), axis=1)
@@ -167,34 +169,35 @@ def main():
 def draw_balls(frame, ball_coordinates, scale, w_world, h_world):
     """Draws the balls on a given frame from world coordinates"""
     radius = int(scale * 0.02625) + 1
-    for i, (x, y, _) in enumerate(ball_coordinates):
-        x = int(scale * (x + w_world / 2))
-        y = int(scale * (-y + h_world / 2))
-        cv2.circle(
-            frame,
-            (x, y),
-            radius,
-            list(PALETTE.values())[i],
-            thickness=-1,
-        )
+    for color, coords in ball_coordinates:
+        for y, x, _ in coords:
+            x = int(2 * scale * (x + h_world / 2))
+            y = int(2 * scale * (y + w_world / 2))
+            cv2.circle(
+                frame,
+                (x, y),
+                radius,
+                PALETTE[color],
+                thickness=-1,
+            )
 
-        # add a highlight and a shadow around the ball
-        overlay = frame.copy()
-        cv2.circle(
-            overlay,
-            (x, y),
-            radius,
-            PALETTE["black"],
-            thickness=1,
-        )
-        cv2.circle(
-            overlay,
-            (x, y - 3),
-            1,
-            PALETTE["white"],
-            thickness=-1,
-        )
-        frame = cv2.addWeighted(overlay, 0.75, frame, 0.25, 0)
+            # add a highlight and a shadow around the ball
+            overlay = frame.copy()
+            cv2.circle(
+                overlay,
+                (x, y),
+                radius,
+                PALETTE["black"],
+                thickness=1,
+            )
+            cv2.circle(
+                overlay,
+                (x, y - 3),
+                1,
+                PALETTE["white"],
+                thickness=-1,
+            )
+            frame = cv2.addWeighted(overlay, 0.75, frame, 0.25, 0)
 
     return frame
 
