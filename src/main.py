@@ -111,7 +111,7 @@ def main():
     M = P[:, :3]  # Rotation matrix of the camera
     camera = -np.linalg.inv(M).dot(P[:, 3].transpose())
 
-    LIGHT_HARDCODED = [0, -3, 6]
+    LIGHT_HARDCODED = [-3, 0, 6]
 
     # for _, (x, y) in image_points.items():
     #     reference_frame[y, x] = (0, 0, 255)
@@ -170,12 +170,14 @@ def draw_balls(frame, ball_coordinates, scale, w_world, h_world):
     """Draws the balls on a given frame from world coordinates"""
     radius = int(scale * 0.02625) + 1
     for color, coords in ball_coordinates:
-        for y, x, _ in coords:
-            x = int(2 * scale * (x + h_world / 2))
-            y = int(2 * scale * (y + w_world / 2))
+        for x, y, _ in coords:
+            x = int(scale * (x + w_world / 2))
+            y = int(scale * (y + h_world / 2))
+            print(x, y)
             cv2.circle(
                 frame,
-                (x, y),
+                # (x, y),
+                (y, x),
                 radius,
                 PALETTE[color],
                 thickness=-1,
