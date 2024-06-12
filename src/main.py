@@ -140,7 +140,17 @@ def main():
     baulk_line = int(scale * (-1.0475 + h_world / 2))
     table[baulk_line] = PALETTE["white"]
 
-    for frame in VideoReader(filtered_path, max_count=25_000):
+    reader = VideoReader(filtered_path, max_count=10_000)
+
+    fps = reader.video.get(cv2.CAP_PROP_FPS)
+    shape = (
+        int(reader.video.get(cv2.CAP_PROP_FRAME_WIDTH) + w_img),
+        int(reader.video.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+    )
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    writer = cv2.VideoWriter(str(data_path / "result.mp4"), fourcc, fps, shape)
+
+    for frame in reader:
         masked_frame = cv2.bitwise_and(frame, frame, mask=mask)
 
         specular_out = detect_highlight(masked_frame)
@@ -148,36 +158,38 @@ def main():
         res = compute_ball_center_from_specular_reflection(
             P, camera, LIGHT_HARDCODED, specular_out
         )
-        print(res)
 
         table_frame = draw_balls(table.copy(), res, scale, w_world, h_world)
 
         # display result
         display = np.concatenate((masked_frame, table_frame), axis=1)
-        cv2.imshow("Video", display)
+        writer.write(display)
+        print("writing...")
 
-        # window closing
-        key = cv2.waitKey(10)
-        if (
-            cv2.getWindowProperty("Video", cv2.WND_PROP_VISIBLE) < 1  # window is closed
-            or (key & 0xFF) == ord("q")
-        ):
-            cv2.destroyAllWindows()
-            break
+        # cv2.imshow("Video", display)
+        # # window closing
+        # key = cv2.waitKey(10)
+        # if (
+        #     cv2.getWindowProperty("Video", cv2.WND_PROP_VISIBLE) < 1  # window is closed
+        #     or (key & 0xFF) == ord("q")
+        # ):
+        #     cv2.destroyAllWindows()
+        #     break
+
+    writer.release()
 
 
 def draw_balls(frame, ball_coordinates, scale, w_world, h_world):
     """Draws the balls on a given frame from world coordinates"""
     radius = int(scale * 0.02625) + 1
+    scale *= 2
     for color, coords in ball_coordinates:
         for x, y, _ in coords:
-            x = int(scale * (x + w_world / 2))
-            y = int(scale * (y + h_world / 2))
-            print(x, y)
+            x_c = int(scale * (-y - w_world / 2))
+            y_c = int(scale * 2 * (x + h_world / 4))
             cv2.circle(
                 frame,
-                # (x, y),
-                (y, x),
+                (x_c, y_c),
                 radius,
                 PALETTE[color],
                 thickness=-1,
@@ -187,14 +199,14 @@ def draw_balls(frame, ball_coordinates, scale, w_world, h_world):
             overlay = frame.copy()
             cv2.circle(
                 overlay,
-                (x, y),
+                (x_c, y_c),
                 radius,
                 PALETTE["black"],
                 thickness=1,
             )
             cv2.circle(
                 overlay,
-                (x, y - 3),
+                (x_c, y_c - 3),
                 1,
                 PALETTE["white"],
                 thickness=-1,
